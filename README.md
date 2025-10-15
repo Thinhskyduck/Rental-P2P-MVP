@@ -137,5 +137,6 @@ docker-compose down
 | 1 | Thân Quốc Thịnh | 52200112 |
 | 2 | Châu Nguyễn Khánh Trình | 52200005 |
 
-- **Học kỳ:** 2 - Năm học 2024-2025
+- **Học kỳ:** 1 - Năm học 2025-2026
+
 
