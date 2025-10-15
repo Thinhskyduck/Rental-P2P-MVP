@@ -137,8 +137,5 @@ docker-compose down
 | 1 | Thân Quốc Thịnh | 52200112 |
 | 2 | Châu Nguyễn Khánh Trình | 52200005 |
 
-## 🏫 Thông tin Môn học
-
-- **Tên môn học:** Lập trình Web với NodeJS - 502070
-- **Giảng viên:** Mai Văn Manh
 - **Học kỳ:** 2 - Năm học 2024-2025
+
