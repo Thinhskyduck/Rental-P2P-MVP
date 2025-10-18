@@ -9,7 +9,8 @@ function NotFoundPage() {
         <h1 className="text-center text-white display-6 wow fadeInUp" data-wow-delay="0.1s">404 Page</h1>
         <ol className="breadcrumb justify-content-center mb-0 wow fadeInUp" data-wow-delay="0.3s">
           <li className="breadcrumb-item"><Link to="/">Home</Link></li>
-          <li className="breadcrumb-item"><a href="#">Pages</a></li>
+          {/* Thay đổi dòng dưới đây từ <a> sang <span> */}
+          <li className="breadcrumb-item"><span className="text-white">Pages</span></li>
           <li className="breadcrumb-item active text-white">404</li>
         </ol>
       </div>
@@ -17,6 +18,7 @@ function NotFoundPage() {
 
       {/* 404 Start */}
       <div className="container-fluid py-5">
+        {/* ... (phần còn lại của file giữ nguyên) ... */}
         <div className="container py-5 text-center">
           <div className="row justify-content-center">
             <div className="col-lg-6">
