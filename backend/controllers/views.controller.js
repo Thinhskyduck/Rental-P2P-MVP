@@ -10,17 +10,19 @@ exports.getItemDetailView = async (req, res) => {
 
   try {
     const item = await Item.findById(req.params.id)
-      // Dùng 'populate' để lấy thông tin 'owner' từ 'ownerId'
-      .populate(
-        'ownerId', // Tên field trong ItemSchema
-        'fullName avatarUrl _id' // Các trường cần lấy từ User (giống 'UserSummary')
-      ); 
+      .populate('ownerId', 'fullName avatarUrl _id'); 
 
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
+    
+    // Tìm các đơn thuê đã được xác nhận của vật phẩm này trong tương lai
+    const confirmedRentals = await Rental.find({ 
+        itemId: req.params.id, 
+        status: 'confirmed',
+        endDate: { $gte: new Date() } 
+    }).select('startDate endDate');
 
-    // Định dạng lại data cho giống 'ItemDetailView'
     const viewData = {
         _id: item._id,
         name: item.name,
@@ -28,12 +30,13 @@ exports.getItemDetailView = async (req, res) => {
         images: item.images,
         pricePerDay: item.pricePerDay,
         address: item.address,
-        // 'populate' sẽ biến 'ownerId' thành object 'owner'
-        owner: item.ownerId 
+        owner: item.ownerId,
+        bookedDates: confirmedRentals // Thêm mảng này vào response
     };
 
     res.status(200).json(viewData);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -42,41 +45,39 @@ exports.getItemDetailView = async (req, res) => {
 exports.getMyRentalsView = async (req, res) => {
   const userId = req.user._id; // Lấy từ middleware 'protect'
 
-  // Helper function để populate dữ liệu cho 'RentalDetail'
-  const populateOptions = [
-      {
-          path: 'itemId', // Tên field trong RentalSchema
-          select: '_id name pricePerDay mainImage', // Giống 'ItemSummary'
-          // Chúng ta cần 'mainImage' (giống Bước 6 - ItemController)
-      },
-      // 'counterparty' sẽ khác nhau tùy ngữ cảnh
-  ];
-
   try {
     // 1. Lấy các đơn tôi là người thuê (asRenter)
     const asRenter = await Rental.find({ renterId: userId })
-      .populate(populateOptions)
+      .sort({ createdAt: -1 }) // >>> THÊM: Sắp xếp kết quả mới nhất lên đầu
+      .populate({ // Populate vật phẩm
+          path: 'itemId',
+          select: '_id name pricePerDay images' // Lấy mảng images
+      })
       .populate({ // Lấy thông tin chủ sở hữu (owner)
           path: 'ownerId',
-          select: '_id fullName avatarUrl' // UserSummary
+          select: '_id fullName email'
       });
 
     // 2. Lấy các đơn tôi là chủ (asOwner)
     const asOwner = await Rental.find({ ownerId: userId })
-      .populate(populateOptions)
+      .sort({ createdAt: -1 }) // >>> THÊM: Sắp xếp kết quả mới nhất lên đầu
+      .populate({ // Populate vật phẩm
+          path: 'itemId',
+          select: '_id name pricePerDay images' // Lấy mảng images
+      })
       .populate({ // Lấy thông tin người thuê (renter)
           path: 'renterId',
-          select: '_id fullName avatarUrl' // UserSummary
+          select: '_id fullName email'
       });
-
-    // Hàm helper để định dạng lại
-    const formatRentalDetail = (rental, counterpartyField) => {
-        const item = rental.itemId;
-        const itemSummary = item ? {
-            _id: item._id,
-            name: item.name,
-            pricePerDay: item.pricePerDay,
-            mainImage: (item.images && item.images.length > 0) ? item.images[0] : ''
+    
+    // 3. Hàm helper để định dạng lại
+    const formatRentalDetail = (rental, counterparty) => {
+        // Rào chắn nếu item bị null (do đã bị xóa)
+        const itemSummary = rental.itemId ? {
+            _id: rental.itemId._id,
+            name: rental.itemId.name,
+            pricePerDay: rental.itemId.pricePerDay,
+            mainImage: (rental.itemId.images && rental.itemId.images.length > 0) ? rental.itemId.images[0] : ''
         } : null;
 
         return {
@@ -85,15 +86,16 @@ exports.getMyRentalsView = async (req, res) => {
             endDate: rental.endDate,
             totalPrice: rental.totalPrice,
             status: rental.status,
+            note: rental.note, // >>> SỬA: Thêm trường note vào đây
             item: itemSummary,
-            counterparty: rental[counterpartyField] // 'ownerId' hoặc 'renterId' đã được populate
+            counterparty: counterparty
         };
     };
 
-    // Trả về kết quả
+    // 4. Trả về kết quả
     res.status(200).json({
-      asRenter: asRenter.map(r => formatRentalDetail(r, 'ownerId')),
-      asOwner: asOwner.map(r => formatRentalDetail(r, 'renterId')),
+      asRenter: asRenter.map(r => formatRentalDetail(r, r.ownerId)),
+      asOwner: asOwner.map(r => formatRentalDetail(r, r.renterId)),
     });
 
   } catch (error) {

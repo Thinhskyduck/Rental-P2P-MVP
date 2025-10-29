@@ -1,15 +1,14 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // Import Link và useNavigate
-import { useAuth } from '../../contexts/AuthContext'; // <-- 1. Import useAuth
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext'; 
 
 function Header() {
-  // 2. Lấy state và hàm từ AuthContext
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
-    navigate('/login'); // Chuyển hướng về trang login sau khi logout
+    navigate('/login'); 
   };
 
   return (
@@ -17,32 +16,42 @@ function Header() {
       {/* Topbar Start */}
       <div className="container-fluid px-5 d-none border-bottom d-lg-block">
         <div className="row gx-0 align-items-center">
-          {/* ... (Phần bên trái 'Help / Support') ... */}
+          
+          {/* SỬA PHẦN NÀY: Xóa các link <a> vô dụng */}
           <div className="col-lg-4 text-center text-lg-start mb-lg-0">
-              {/* ... */}
+            <div className="d-inline-flex align-items-center" style={{height: '45px'}}>
+                <span className="text-muted me-2">Help</span><small> / </small>
+                <span className="text-muted mx-2">Support</span><small> / </small>
+                <span className="text-muted ms-2">Contact</span>
+            </div>
           </div>
           <div className="col-lg-4 text-center d-flex align-items-center justify-content-center">
-              {/* ... */}
+              <small className="text-dark">Call Us:</small>
+              {/* SỬA PHẦN NÀY: Xóa thẻ <a> */}
+              <span className="text-muted ms-2">(+012) 1234 567890</span>
           </div>
+          {/* HẾT PHẦN SỬA */}
 
-          {/* Ví dụ thay đổi cho My Dashboard */}
           <div className="col-lg-4 text-center text-lg-end">
             <div className="d-inline-flex align-items-center" style={{ height: '45px' }}>
-              {/* ... (Dropdown USD, English) ... */}
+              {/* ... (Dropdown USD, English giữ nguyên nếu có) ... */}
               <div className="dropdown">
-                <a href="#!" className="dropdown-toggle text-muted ms-2" data-bs-toggle="dropdown">
-                  {/* 3. Sử dụng state */}
-                  <small><i className="fa fa-user me-2"></i> {isLoggedIn ? user.fullName : 'My Account'}</small>
+                
+                {/* SỬA PHẦN NÀY: Xóa href="#!", thêm role="button" */}
+                <a href="#" onClick={(e) => e.preventDefault()} className="dropdown-toggle text-muted ms-2" data-bs-toggle="dropdown" role="button" aria-expanded="false" style={{ cursor: 'pointer' }}>
+                  <small><i className="fa fa-user me-2"></i> {isLoggedIn && user ? user.fullName : 'My Account'}</small>
                 </a>
+                {/* HẾT PHẦN SỬA */}
+
                 <div className="dropdown-menu rounded">
-                  {isLoggedIn ? (
+                  {isLoggedIn && user ? (
                     <>
                       <span className="dropdown-item-text">Xin chào, {user.fullName}</span>
                       <hr className="dropdown-divider" />
+                      {/* CÁC NÚT BẠN TÌM ĐANG Ở ĐÂY */}
                       <Link to="/my-rentals" className="dropdown-item">My Rentals</Link>
                       <Link to="/post-item" className="dropdown-item">Post New Item</Link>
                       <hr className="dropdown-divider" />
-                      {/* 4. Gắn hàm logout */}
                       <button onClick={handleLogout} className="dropdown-item">Log Out</button>
                     </>
                   ) : (
@@ -57,9 +66,8 @@ function Header() {
           </div>
         </div>
       </div>
-
-      {/* ... (Phần còn lại của Header: Logo, Search, Navbar...) ... */}
-      {/* (Giữ nguyên như code ở Bước 1) */}
+      
+      {/* (Phần còn lại của Header giữ nguyên) */}
       <div className="container-fluid px-5 py-4 d-none d-lg-block">
          <div className="row gx-0 align-items-center text-center">
             <div className="col-md-4 col-lg-3 text-center text-lg-start">
@@ -70,21 +78,13 @@ function Header() {
                     </Link>
                 </div>
             </div>
-            {/* ... Phần Search (Sẽ làm sau) ... */}
             <div className="col-md-4 col-lg-6 text-center">
-                {/* <div className="position-relative ps-4">
-                    <div className="d-flex border rounded-pill">
-                        <input className="form-control border-0 rounded-pill w-100 py-3" type="text" placeholder="Search Looking For?"/>
-                        <button type="button" className="btn btn-primary rounded-pill py-3 px-5" style={{"border": 0}}><i className="fas fa-search"></i></button>
-                    </div>
-                </div> */}
             </div>
             <div className="col-md-4 col-lg-3 text-center text-lg-end">
-                {/* ... (Phần Cart bỏ qua) ... */}
             </div>
          </div>
       </div>
-
+      
       <div className="container-fluid nav-bar p-0">
             <div className="row gx-0 bg-primary px-5 align-items-center">
                 <div className="col-lg-3 d-none d-lg-block">
@@ -96,10 +96,10 @@ function Header() {
                         <div className="collapse navbar-collapse rounded-bottom" id="allCat">
                             <div className="navbar-nav ms-auto py-0">
                                 <ul className="list-unstyled categories-bars">
-                                    {/* (Tạm thời để tĩnh) */}
-                                    <li><div className="categories-bars-item"><a href="#!">Đồ điện tử</a><span>(5)</span></div></li>
-                                    <li><div className="categories-bars-item"><a href="#!">Dụng cụ gia đình</a><span>(8)</span></div></li>
-                                    <li><div className="categories-bars-item"><a href="#!">Đồ cắm trại</a><span>(2)</span></div></li>
+                                    {/* SỬA: Xóa href="#!" */}
+                                    <li><div className="categories-bars-item"><span className="text-dark">Đồ điện tử</span><span>(0)</span></div></li>
+                                    <li><div className="categories-bars-item"><span className="text-dark">Dụng cụ gia đình</span><span>(0)</span></div></li>
+                                    <li><div className="categories-bars-item"><span className="text-dark">Đồ cắm trại</span><span>(0)</span></div></li>
                                 </ul>
                             </div>
                         </div>

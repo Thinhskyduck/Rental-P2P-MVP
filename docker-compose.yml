@@ -1,0 +1,90 @@
+services:
+  # 1. BACKEND API SERVICE
+  backend:
+    build: ./backend
+    container_name: p2p_backend_api
+    ports:
+      # Mở port 5000 để frontend có thể gọi trực tiếp
+      - "5000:5000"
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+    env_file:
+      - ./backend/.env
+    depends_on:
+      mongodb:
+        condition: service_started # Chờ mongodb bắt đầu
+      rabbitmq:
+        condition: service_healthy # >>> SỬA: Chờ rabbitmq sẵn sàng
+    networks:
+      - app-network
+
+  # 2. FRONTEND SERVICE (chạy React Dev Server)
+  frontend:
+    build: ./frontend
+    container_name: p2p_frontend_app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      # >>>>>>>>> THAY ĐỔI CỐT LÕI <<<<<<<<<<
+      - NODE_OPTIONS=--openssl-legacy-provider
+      - CHOKIDAR_USEPOLLING=true
+    stdin_open: true
+    tty: true
+    networks:
+      - app-network
+
+  # 3. NOTIFICATION WORKER SERVICE
+  notification-worker:
+    build: ./notification-worker
+    container_name: p2p_notification_worker
+    volumes:
+      - ./notification-worker:/usr/src/app
+      - /usr/src/app/node_modules
+    env_file:
+      - ./notification-worker/.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy # >>> SỬA: Chờ rabbitmq sẵn sàng
+      mongodb:
+        condition: service_started # Chờ mongodb bắt đầu
+    networks:
+      - app-network
+
+  # 4. DATABASE SERVICE - MongoDB
+  mongodb:
+    image: mongo:latest
+    container_name: p2p_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+
+  # 5. MESSAGE BROKER SERVICE - RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: p2p_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    # >>> THÊM: Healthcheck để kiểm tra khi nào RabbitMQ sẵn sàng
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver: local

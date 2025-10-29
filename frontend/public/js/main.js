@@ -26,21 +26,21 @@
     });
 
 
-    // Hero Header carousel
-    $(".header-carousel").owlCarousel({
-        items: 1,
-        autoplay: true,
-        smartSpeed: 2000,
-        center: false,
-        dots: false,
-        loop: true,
-        margin: 0,
-        nav : true,
-        navText : [
-            '<i class="bi bi-arrow-left"></i>',
-            '<i class="bi bi-arrow-right"></i>'
-        ]
-    });
+    // // Hero Header carousel
+    // $(".header-carousel").owlCarousel({
+    //     items: 1,
+    //     autoplay: true,
+    //     smartSpeed: 2000,
+    //     center: false,
+    //     dots: false,
+    //     loop: true,
+    //     margin: 0,
+    //     nav : true,
+    //     navText : [
+    //         '<i class="bi bi-arrow-left"></i>',
+    //         '<i class="bi bi-arrow-right"></i>'
+    //     ]
+    // });
 
 
     // ProductList carousel

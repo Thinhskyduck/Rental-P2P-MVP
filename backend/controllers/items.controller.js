@@ -1,38 +1,40 @@
+// backend/controllers/items.controller.js
 const Item = require('../models/Item.model');
 
-// GET /api/items (Search or get list)
-exports.searchItems = async (req, res) => {
-  const keyword = req.query.search 
-    ? {
-        name: {
-          $regex: req.query.search, // Tìm kiếm theo regex
-          $options: 'i', // không phân biệt hoa thường
-        },
-        status: 'available' // Chỉ tìm item 'available'
-      }
-    : { status: 'available' }; // Nếu không search, lấy tất cả item 'available'
-
+// >>> SỬA 1: Bỏ 'exports.' và định nghĩa như một hằng số (const)
+const searchItems = async (req, res) => {
   try {
-    const items = await Item.find(keyword)
-                            .select('_id name pricePerDay mainImage') // Giống 'ItemSummary'
-                            .limit(20); // Thêm giới hạn
+    const keyword = req.query.search
+      ? {
+          name: {
+            $regex: req.query.search,
+            $options: 'i',
+          },
+        }
+      : {};
 
-    // Giả lập 'mainImage' từ mảng 'images'
+    // Thay vì chỉ lấy 'available', chúng ta lấy tất cả những gì KHÔNG BỊ 'delisted'
+    const items = await Item.find({ ...keyword, status: { $ne: 'delisted' } })
+                              .select('_id name pricePerDay images')
+                              .sort({ createdAt: -1 })
+                              .limit(20);
+
     const itemSummaries = items.map(item => ({
         _id: item._id,
         name: item.name,
         pricePerDay: item.pricePerDay,
-        mainImage: item.images && item.images.length > 0 ? item.images[0] : ''
+        mainImage: (item.images && item.images.length > 0) ? item.images[0] : ''
     }));
 
     res.status(200).json(itemSummaries);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error(error);
+    res.status(500).json({ message: 'Server error while searching items' });
   }
 };
 
-// POST /api/items
-exports.createItem = async (req, res) => {
+// >>> SỬA 2: Bỏ 'exports.'
+const createItem = async (req, res) => {
   const { name, description, pricePerDay, address, images } = req.body;
 
   try {
@@ -42,47 +44,45 @@ exports.createItem = async (req, res) => {
       pricePerDay,
       address,
       images,
-      ownerId: req.user._id // Lấy từ middleware 'protect'
+      ownerId: req.user.id
     });
 
     const createdItem = await item.save();
-    res.status(201).json(createdItem); // Trả về Item đầy đủ
+    res.status(201).json(createdItem);
   } catch (error) {
     res.status(400).json({ message: 'Bad request', error: error.message });
   }
 };
 
-// Middleware kiểm tra chủ sở hữu item
 const checkOwner = async (req, res, next) => {
   try {
     const item = await Item.findById(req.params.id);
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
-    // So sánh ownerId (ObjectId) với req.user._id (ObjectId)
-    if (item.ownerId.equals(req.user._id)) {
-      req.item = item; // Gắn item vào req để dùng ở controller
+    
+    if (item.ownerId.toString() === req.user.id) {
+      req.item = item;
       next();
     } else {
       res.status(403).json({ message: 'Forbidden (not the owner)' });
     }
   } catch (error) {
-    res.status(404).json({ message: 'Item not found' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// PUT /api/items/:id
-exports.updateItem = async (req, res) => {
-  // Middleware 'checkOwner' đã chạy và gắn 'req.item'
+// >>> SỬA 3: Bỏ 'exports.'
+const updateItem = async (req, res) => {
   const { name, description, pricePerDay, address, images, status } = req.body;
-  const item = req.item;
+  const item = req.item; 
 
-  item.name = name || item.name;
-  item.description = description || item.description;
-  item.pricePerDay = pricePerDay || item.pricePerDay;
-  item.address = address || item.address;
-  item.images = images || item.images;
-  // Chỉ chủ sở hữu mới được cập nhật status (ví dụ: tạm ẩn)
+  item.name = name ?? item.name;
+  item.description = description ?? item.description;
+  item.pricePerDay = pricePerDay ?? item.pricePerDay;
+  item.address = address ?? item.address;
+  item.images = images ?? item.images;
+  
   if (status && ['available', 'delisted'].includes(status)) {
      item.status = status;
   }
@@ -95,20 +95,25 @@ exports.updateItem = async (req, res) => {
   }
 };
 
-// DELETE /api/items/:id
-exports.deleteItem = async (req, res) => {
-  // Middleware 'checkOwner' đã chạy
+// >>> SỬA 4: Bỏ 'exports.'
+const deleteItem = async (req, res) => {
   try {
-    // Cần kiểm tra xem item có đang được thuê (rented) không
     if (req.item.status === 'rented') {
         return res.status(400).json({ message: 'Cannot delete item while it is being rented.' });
     }
-    await req.item.deleteOne(); // Mongoose v6+ dùng deleteOne()
-    res.status(204).send(); // No Content
+    await Item.findByIdAndDelete(req.params.id);
+    res.status(204).send();
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Gắn thêm module.exports.checkOwner để dùng ở route
-module.exports.checkOwner = checkOwner;
+// >>> SỬA 5: Xóa dòng `module.exports.checkOwner = checkOwner;`
+// và thay thế bằng một export duy nhất ở cuối file.
+module.exports = {
+  searchItems,
+  createItem,
+  updateItem,
+  deleteItem,
+  checkOwner
+};

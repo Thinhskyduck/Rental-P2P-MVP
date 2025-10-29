@@ -1,8 +1,43 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom'; // Import Link để điều hướng
+import ItemList from '../components/Items/ItemList'; // <-- 1. IMPORT
 
 function HomePage() {
   // Lưu ý: Các file ảnh như /img/carousel-1.png phải nằm trong thư mục `frontend/public/img/`
+  // >>> GIẢI QUYẾT LỖI CAROUSEL TẠI ĐÂY <<<
+  useEffect(() => {
+    // Biến để lưu trữ instance của carousel
+    let headerCarousel;
+
+    // Kiểm tra xem jQuery và plugin OwlCarousel đã được tải chưa
+    if (window.jQuery && window.jQuery.fn.owlCarousel) {
+      // Chọn phần tử carousel bằng jQuery
+      headerCarousel = window.jQuery(".header-carousel");
+      
+      // Khởi tạo Owl Carousel với các tùy chọn từ template của bạn
+      headerCarousel.owlCarousel({
+        autoplay: true,
+        smartSpeed: 1500,
+        items: 1,
+        dots: false,
+        loop: true,
+        nav: true,
+        navText: [
+          '<i class="bi bi-chevron-left"></i>',
+          '<i class="bi bi-chevron-right"></i>'
+        ]
+      });
+    }
+
+    // Đây là hàm "cleanup" (dọn dẹp)
+    // Nó sẽ chạy khi component HomePage bị gỡ khỏi màn hình (ví dụ: khi chuyển trang)
+    // Việc này giúp ngăn ngừa memory leak và các lỗi không mong muốn.
+    return () => {
+      if (headerCarousel) {
+        headerCarousel.trigger('destroy.owl.carousel');
+      }
+    };
+  }, []); // Mảng rỗng `[]` đảm bảo useEffect chỉ chạy MỘT LẦN sau khi component render lần đầu
   return (
     <>
       {/* Carousel Start */}
@@ -181,17 +216,13 @@ function HomePage() {
           <div className="tab-class">
             <div className="row g-4">
               <div className="col-lg-4 text-start wow fadeInLeft" data-wow-delay="0.1s">
-                <h1>Vật dụng cho thuê</h1>
+                <h1>Vật dụng Mới nhất</h1>
               </div>
-              {/* (Các tab lọc tạm thời ẩn đi) */}
             </div>
             <div className="tab-content">
               <div id="tab-1" className="tab-pane fade show p-0 active">
-                <p className='text-center fs-4'>[Danh sách sản phẩm sẽ được tải từ API ở bước sau]</p>
-                {/* Chúng ta sẽ tạo một component ProductList và ProductCard 
-                  để fetch và hiển thị dữ liệu động từ API ở bước sau.
-                  Giờ chỉ cần placeholder.
-                */}
+                {/* 2. THAY THẾ PLACEHOLDER BẰNG ITEMLIST */}
+                <ItemList /> 
               </div>
             </div>
           </div>

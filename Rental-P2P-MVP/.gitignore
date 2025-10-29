@@ -1,0 +1,5 @@
+node_modules/
+.vscode/
+.42c/
+.env
+dist/
