@@ -1,42 +1,58 @@
 // backend/config/rabbitmq.js
 const amqp = require('amqplib');
 
-let channel = null;
-const QUEUE_NAME = 'notification_queue'; // Tên hàng đợi
+const QUEUE_NAME = 'notification_queue';
+const RABBITMQ_URI = process.env.RABBITMQ_URI || 'amqp://rabbitmq';
 
+let channel = null; // Biến để giữ channel kết nối
+
+// Hàm kết nối chính, có retry logic
 const connectRabbitMQ = async () => {
-  try {
-    const connection = await amqp.connect(process.env.RABBITMQ_URI);
-    channel = await connection.createChannel();
-    await channel.assertQueue(QUEUE_NAME, { durable: true });
-    console.log('RabbitMQ connected and channel created.');
-  } catch (error) {
-    console.error('Failed to connect to RabbitMQ:', error.message);
-    // Thử kết nối lại sau 5 giây
-    setTimeout(connectRabbitMQ, 5000);
+  let attempt = 0;
+  const maxAttempts = 10;
+  const retryDelay = 5000; // 5 giây
+
+  while (attempt < maxAttempts) {
+    try {
+      console.log('[BACKEND] Attempting to connect to RabbitMQ...');
+      const connection = await amqp.connect(RABBITMQ_URI);
+      channel = await connection.createChannel(); // Gán vào biến channel toàn cục
+      
+      await channel.assertQueue(QUEUE_NAME, { durable: true });
+      
+      console.log('[BACKEND] RabbitMQ Connected successfully.');
+
+      connection.on('error', (err) => {
+        console.error('[BACKEND] RabbitMQ connection error:', err.message);
+        channel = null; // Reset channel
+      });
+      connection.on('close', () => {
+        console.error('[BACKEND] RabbitMQ connection closed. Attempting to reconnect...');
+        channel = null; // Reset channel
+        setTimeout(connectRabbitMQ, retryDelay); // Cố gắng kết nối lại
+      });
+
+      return; // Kết nối thành công, thoát khỏi vòng lặp
+    } catch (error) {
+      attempt++;
+      console.error(`[BACKEND] RabbitMQ connection failed. Attempt ${attempt} of ${maxAttempts}. Retrying in ${retryDelay / 1000}s...`);
+      if (attempt >= maxAttempts) {
+        throw new Error('Could not connect to RabbitMQ after multiple attempts.');
+      }
+      // Chờ trước khi thử lại
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
   }
 };
 
-const getChannel = () => {
-  if (!channel) {
+// Hàm publish, bây giờ sẽ kiểm tra channel trước khi gửi
+const publishToQueue = (data) => {
+  if (channel) {
+    channel.sendToQueue(QUEUE_NAME, Buffer.from(JSON.stringify(data)), { persistent: true });
+  } else {
+    // Ném lỗi để controller có thể log lại
     throw new Error('RabbitMQ channel is not available.');
   }
-  return channel;
 };
 
-// Hàm gửi message
-const publishToQueue = (data) => {
-  try {
-    const channel = getChannel();
-    channel.sendToQueue(QUEUE_NAME, Buffer.from(JSON.stringify(data)), { persistent: true });
-    console.log(`[x] Sent message to ${QUEUE_NAME}:`, data);
-  } catch (error) {
-    console.error('Failed to publish message:', error.message);
-  }
-};
-
-module.exports = {
-  connectRabbitMQ,
-  publishToQueue,
-  QUEUE_NAME
-};
+module.exports = { connectRabbitMQ, publishToQueue };

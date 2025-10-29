@@ -4,7 +4,7 @@ import axios from 'axios';
 const api = axios.create({
   // Lấy URL của backend từ file .env của React (nếu có)
   // Hoặc hardcode (cho mục đích học thuật)
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost/api',
   headers: {
     'Content-Type': 'application/json',
   },
