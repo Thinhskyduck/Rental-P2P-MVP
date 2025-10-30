@@ -1,23 +1,14 @@
 # Nền tảng Cho thuê đồ dùng cá nhân P2P (P2P Rental Platform)
 
-Đây là dự án giữa kỳ cho môn học Lập trình Web với NodeJS (502070). Dự án xây dựng một nền tảng kinh tế chia sẻ (MVP) cho phép người dùng cho thuê và đi thuê các vật dụng cá nhân một cách an toàn và tiện lợi, được xây dựng trên kiến trúc microservices và triển khai bằng Docker.
+Đây là dự án giữa kỳ cho môn học Lập trình Web với NodeJS (502070). Dự án xây dựng một nền tảng kinh tế chia sẻ (MVP) cho phép người dùng cho thuê và đi thuê các vật dụng cá nhân một cách an toàn và tiện lợi. Hệ thống được xây dựng trên kiến trúc microservices, có khả năng mở rộng và được điều phối bởi Docker Compose và Docker Swarm.
 
 ## ✨ Tính năng chính
 
-### Dành cho Người dùng (User)
-- ✅ **Xác thực:** Đăng ký, Đăng nhập, Đăng xuất bằng tài khoản Email.
-- 🖼️ **Quản lý Vật phẩm:** Đăng tải, xem danh sách, chỉnh sửa và xóa các vật phẩm cá nhân cho thuê.
-- 🔍 **Tìm kiếm & Khám phá:** Tìm kiếm vật phẩm theo tên và xem các vật phẩm mới nhất trên trang chủ.
-- 📅 **Luồng Đặt thuê:**
-    - Xem chi tiết thông tin vật phẩm và lịch trống.
-    - Gửi yêu cầu thuê với khoảng thời gian cụ thể.
-    - Chủ sở hữu có thể Chấp nhận hoặc Từ chối yêu cầu.
-    - Theo dõi trạng thái tất cả các đơn thuê (cả đi thuê và cho thuê).
--  asynchronously **Thông báo:** Nhận thông báo qua email (mô phỏng) khi có các cập nhật quan trọng về đơn thuê (được xử lý bất đồng bộ qua RabbitMQ).
-
-### Dành cho Quản trị viên (Admin)
-- 👤 **Quản lý Người dùng:** Xem danh sách và khóa/mở khóa tài khoản người dùng.
-- 📦 **Quản lý Vật phẩm:** Duyệt và gỡ các bài đăng vi phạm chính sách.
+- ✅ **Xác thực & Phân quyền:** Đăng ký, Đăng nhập, Đăng xuất.
+- 🖼️ **Quản lý Vật phẩm (CRUD):** Người dùng có thể đăng tải, xem danh sách, cập nhật và xóa các vật phẩm cá nhân cho thuê.
+- 🔍 **Tìm kiếm & Khám phá:** Tìm kiếm vật phẩm theo tên, xem các vật phẩm mới nhất.
+- 📅 **Luồng Đặt thuê hoàn chỉnh:** Xem lịch trống, gửi yêu cầu, Chấp nhận/Từ chối yêu cầu, theo dõi trạng thái.
+-  📧 **Thông báo bất đồng bộ qua Email:** Tự động gửi email cho chủ sở hữu và người thuê khi có cập nhật trạng thái đơn hàng. Tác vụ này được xử lý bất đồng bộ qua RabbitMQ và một Worker riêng biệt để không làm ảnh hưởng đến hiệu năng của hệ thống.
 
 ## 🛠️ Công nghệ sử dụng
 
@@ -28,11 +19,12 @@
 | **Database** | ![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white) |
 | **Message Broker** | ![RabbitMQ](https://img.shields.io/badge/Rabbitmq-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white) |
 | **Containerization** | ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white) |
-| **Web Server / Proxy**| ![Nginx](https://img.shields.io/badge/nginx-%23009639.svg?style=for-the-badge&logo=nginx&logoColor=white) |
+| **Reverse Proxy / LB**| ![Nginx](https://img.shields.io/badge/nginx-%23009639.svg?style=for-the-badge&logo=nginx&logoColor=white) |
+| **Orchestration** | Docker Swarm |
 
 ## 🏗️ Kiến trúc Hệ thống
 
-Dự án được xây dựng theo kiến trúc microservices, được điều phối bởi Docker Compose.
+Dự án được xây dựng theo kiến trúc microservices có khả năng mở rộng. Nginx đóng vai trò là cổng vào duy nhất (Reverse Proxy) và cân bằng tải (Load Balancer) cho các service backend. RabbitMQ được sử dụng để tách biệt (decouple) logic thông báo khỏi luồng xử lý chính, giúp tăng tính ổn định và khả năng phục hồi của hệ thống.
 
 ```mermaid
 graph TD
@@ -41,14 +33,17 @@ graph TD
     end
 
     subgraph "Hệ thống Docker"
-        Nginx[Nginx Reverse Proxy]
-        Frontend[Frontend Service - ReactJS]
+        Nginx[Nginx Reverse Proxy / LB]
         
-        subgraph "Backend Services"
-            BackendAPI[Backend API - ExpressJS]
-            NotificationWorker[Notification Worker]
+        subgraph "Backend Replicas"
+            BackendAPI1[Backend API 1]
+            BackendAPI2[Backend API 2]
+            BackendAPI3[Backend API 3]
         end
 
+        Frontend[Frontend Service]
+        NotificationWorker[Notification Worker]
+        
         subgraph "Data & Messaging"
             MongoDB[MongoDB Database]
             RabbitMQ[RabbitMQ Message Broker]
@@ -56,87 +51,114 @@ graph TD
     end
 
     User -- HTTP Request --> Nginx
-    Nginx -- Port 80 --> Frontend
-    Nginx -- /api --> BackendAPI
-
-    Frontend -- API Call --> BackendAPI
     
-    BackendAPI -- Read/Write --> MongoDB
-    BackendAPI -- Publish Job --> RabbitMQ
+    Nginx -- /api (Load Balanced) --> BackendAPI1
+    Nginx -- /api (Load Balanced) --> BackendAPI2
+    Nginx -- /api (Load Balanced) --> BackendAPI3
+    Nginx -- / --> Frontend
+
+    Frontend -- API Call --> Nginx
+
+    BackendAPI1 -- Read/Write --> MongoDB
+    BackendAPI2 -- Publish Job --> RabbitMQ
     
     NotificationWorker -- Consume Job --> RabbitMQ
+    NotificationWorker -- Read --> MongoDB
 ```
 
 ## 🚀 Hướng dẫn Cài đặt và Chạy dự án
 
 ### Yêu cầu tiên quyết
 - [Git](https://git-scm.com/)
-- [Docker](https://www.docker.com/products/docker-desktop/)
-- Một trình soạn thảo code, ví dụ [Visual Studio Code](https://code.visualstudio.com/)
+- [Docker](https://www.docker.com/products/docker-desktop/) và Docker Compose
 
-### Các bước cài đặt
-
-1.  **Clone repository về máy:**
+### Cấu hình
+1.  **Clone repository:**
     ```bash
-    git clone https://your-repo-url/p2p-rental-platform.git
-    cd p2p-rental-platform
+    git clone <your-repo-url>
+    cd <repo-folder>
     ```
 
-2.  **Cấu hình biến môi trường:**
-    Dự án cần các file `.env` để hoạt động. Hãy tạo chúng bằng cách sao chép từ các file `.env.example`.
-
-    *   **Đối với Backend:**
-        ```bash
-        cp backend/.env.example backend/.env
-        ```
-        Sau đó mở file `backend/.env` và chỉnh sửa các giá trị nếu cần (giá trị mặc định đã được cấu hình để chạy với Docker).
-        ```env
-        # backend/.env
-        PORT=5000
-        MONGO_URI=mongodb://mongodb:27017/p2p_rental
-        JWT_SECRET=YOUR_SUPER_SECRET_KEY
-        RABBITMQ_URL=amqp://rabbitmq
-        ```
-
-    *   **Đối với Frontend:**
-        ```bash
-        cp frontend/.env.example frontend/.env
-        ```
-        File này giúp React biết địa chỉ API của backend.
-        ```env
-        # frontend/.env
-        REACT_APP_API_URL=http://localhost/api
-        ```
-
-3.  **Khởi chạy toàn bộ hệ thống bằng Docker Compose:**
-    Mở terminal ở thư mục **gốc** của dự án (`p2p-rental-platform/`) và chạy lệnh sau:
+2.  **Thiết lập biến môi trường:**
+    Sao chép các file `.env.example` thành `.env` và chỉnh sửa nếu cần thiết.
     ```bash
-    docker-compose up -d --build
+    # Cho Backend
+    cp backend/.env.example backend/.env
+
+    # Cho Frontend
+    cp frontend/.env.example frontend/.env
+
+    # Cho Notification Worker
+    cp notification-worker/.env.example notification-worker/.env
     ```
-    - `--build`: Sẽ build lại các image nếu có thay đổi trong source code.
-    - `-d`: Chạy các container ở chế độ detached (chạy ngầm).
+    **Lưu ý quan trọng:** Cần điền thông tin SMTP của bạn vào `notification-worker/.env` để tính năng gửi email hoạt động.
 
-4.  **Hệ thống đã sẵn sàng!**
-    - 🌐 **Truy cập ứng dụng Web:** [http://localhost](http://localhost) (Nginx sẽ tự động trỏ đến port 80)
-    - 📄 **Truy cập tài liệu API (Swagger):** [http://localhost:5000/api-docs](http://localhost:5000/api-docs)
-    - 🐰 **Truy cập giao diện quản lý RabbitMQ:** [http://localhost:15672](http://localhost:15672) (user: `guest`, pass: `guest`)
+---
 
-### Dừng hệ thống
+### Chạy ở Môi trường Phát triển (Tương đương Level 2)
 
-Để dừng tất cả các container đang chạy, sử dụng lệnh:
-```bash
-docker-compose down
-```
+Môi trường này hỗ trợ live-reload code và scaling với Docker Compose, phù hợp cho việc phát triển và demo Level 2.
+
+1.  **Khởi chạy hệ thống:**
+    ```bash
+    # Khởi chạy toàn bộ service, đồng thời tạo 3 bản sao của backend
+    docker-compose up --build --scale backend=3 -d
+    ```
+
+2.  **Truy cập:**
+    -   **Ứng dụng Web:** [http://localhost](http://localhost)
+    -   **Giao diện RabbitMQ:** [http://localhost:15672](http://localhost:15672) (user: `guest`, pass: `guest`)
+
+3.  **Dừng hệ thống:**
+    ```bash
+    docker-compose down
+    ```
+
+---
+
+### Chạy ở Môi trường Triển khai (Tương đương Level 3 với Docker Swarm)
+
+Môi trường này mô phỏng việc triển khai ứng dụng lên một cluster, đáp ứng yêu cầu của Level 3.
+
+1.  **Khởi tạo Swarm (chỉ làm 1 lần):**
+    ```bash
+    docker swarm init
+    ```
+
+2.  **Build các image production:**
+    Lệnh này sử dụng file `docker-compose.yml` để xây dựng các image cần thiết.
+    ```bash
+    docker-compose build
+    ```
+
+3.  **Triển khai "stack" lên Swarm:**
+    Lệnh này sử dụng file `docker-compose.swarm.yml` để triển khai các image đã được build.
+    ```bash
+    docker stack deploy -c docker-compose.swarm.yml p2p_rental_stack
+    ```
+
+4.  **Kiểm tra trạng thái:**
+    ```bash
+    docker service ls
+    ```
+    Đợi cho đến khi cột `REPLICAS` của tất cả các service hiển thị đúng số lượng (ví dụ: `3/3`).
+
+5.  **Truy cập:**
+    -   **Ứng dụng Web:** [http://localhost](http://localhost)
+
+6.  **Dừng và dọn dẹp:**
+    ```bash
+    docker stack rm p2p_rental_stack
+    docker swarm leave --force
+    ```
 
 ---
 
 ## 👥 Thành viên Nhóm
 
-| STT | Họ và Tên | MSSV |
-| :--- | :--- | :--- |
-| 1 | Thân Quốc Thịnh | 52200112 |
-| 2 | Châu Nguyễn Khánh Trình | 52200005 |
+| STT | Họ và Tên               | MSSV     |
+|:----|:------------------------|:---------|
+| 1   | Thân Quốc Thịnh          | 52200112 |
+| 2   | Châu Nguyễn Khánh Trình | 52200005 |
 
 - **Học kỳ:** 1 - Năm học 2025-2026
-
-
