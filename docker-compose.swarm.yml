@@ -1,0 +1,85 @@
+version: "3.8"
+
+configs:
+  nginx_config:
+    file: ./nginx/nginx.conf
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports: ["80:80"]
+    configs:
+      - source: nginx_config
+        target: /etc/nginx/nginx.conf
+    deploy:
+      placement: { constraints: [node.role == manager] }
+      # >>> THAY ĐỔI: Sử dụng restart_policy thay vì depends_on <<<
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    networks: ["app-network"]
+
+  backend:
+    image: rental-p2p-mvp_backend
+    deploy:
+      replicas: 3
+      # >>> THAY ĐỔI: Cấu hình restart_policy chi tiết <<<
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    env_file: ["./backend/.env"]
+    networks: ["app-network"]
+
+  frontend:
+    image: rental-p2p-mvp_frontend
+    environment: ["NODE_OPTIONS=--openssl-legacy-provider", "CHOKIDAR_USEPOLLING=true"]
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    networks: ["app-network"]
+
+  notification-worker:
+    image: rental-p2p-mvp_notification-worker
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    env_file: ["./notification-worker/.env"]
+    networks: ["app-network"]
+
+  mongodb:
+    image: mongo:latest
+    ports: ["27017:27017"]
+    volumes: ["mongo-data:/data/db"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: ["app-network"]
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports: ["15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: ["app-network"]
+
+networks:
+  app-network: { driver: overlay }
+
+volumes:
+  mongo-data: { driver: local }
